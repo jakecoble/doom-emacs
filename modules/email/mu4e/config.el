@@ -106,10 +106,29 @@
   :commands org-mu4e-open org-mu4e-store-link org-mu4e-store-and-capture
   :init
   (after! org
+    (defvar suppress-main-view)
+    (defun mu4e~suppress-main-view (old-func &rest args)
+      (if (not (bound-and-true-p suppress-main-view))
+          (apply old-func args)))
+
+    (defun mu4e~headers-quit-buffer-completely ()
+      (interactive)
+      (let ((suppress-main-view t))
+        (mu4e~headers-quit-buffer)))
+
+    (defun org-mu4e~suppress-main-view (old-func &rest args)
+      (require 'mu4e)
+      (let ((mu4e-headers-mode-map (copy-keymap mu4e-headers-mode-map)))
+        (define-key mu4e-headers-mode-map [remap mu4e~headers-quit-buffer] 'mu4e~headers-quit-buffer-completely)
+        (apply old-func args)))
+
+    (advice-add 'mu4e~main-view :around #'mu4e~suppress-main-view)
+    (advice-add 'org-mu4e-open :around #'org-mu4e~suppress-main-view)
+
     (if (fboundp 'org-link-set-parameters)
         (org-link-set-parameters "mu4e"
-        :follow 'org-mu4e-open
-        :store 'org-mu4e-store-link)
+                                 :follow 'org-mu4e-open
+                                 :store 'org-mu4e-store-link)
       (org-add-link-type "mu4e" 'org-mu4e-open)
       (add-hook 'org-store-link-functions 'org-mu4e-store-link)))
   :config
